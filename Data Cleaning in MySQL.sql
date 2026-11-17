@@ -6,10 +6,13 @@ Select * from layoffs;
 -- 4. Remove Unnessary Columns (if any)
 		-- never remove from the raw data set, use a staging table
 
+-- Always begin by creating a staging table, to preserve the raw data.
 CREATE TABLE layoffs_staging
 Like Layoffs;
 Insert layoffs_staging
 Select * from layoffs;
+
+-- CTE's functionally are just a more readable way to write subqueries. In this case, we are using the nesting to find duplicates by parition row_number() over all columns.
 
 with duplicate_cte AS
 (
@@ -22,13 +25,13 @@ Select *,
  from duplicate_cte
  Where row_num > 1;
 
--- Cannot delete from a cte in MySQL
+-- You cannot delete from a cte in MySQL per alex. I think this may actually be due to us using a window function.
  
  Select * 
  from layoffs_staging 
  where company = 'Casper';
  
- 
+ -- Creating a secondary staging table with data types.
  CREATE TABLE `layoffs_staging2` (
   `company` text,
   `location` text,
@@ -42,6 +45,7 @@ Select *,
   `row_num` INT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+-- Adding a row for row_num then using it to delete duplicates is the alternative method, because we cannot delete using the CTE.
  Insert into layoffs_staging2
  Select *,
  Row_number() over (
@@ -57,6 +61,7 @@ Delete
  
  -- Standardizing Data
  -- Cleaning columns
+ -- This is using select distincts on columns to find different rows that should actually by the same. Ex: Country: "United States" vs "United States."
  Select Distinct Industry
  from layoffs_staging2
  where industry like 'Crypto%';
@@ -102,6 +107,7 @@ Where industry is null or industry = '';
  from layoffs_staging2
  where company like '%Bally%';
 
+-- One option is to find the information that should be in that null from elsewhere in our data. This may not always be possible.
  Select *
  from layoffs_staging2 t1
  Join layoffs_staging2 t2
